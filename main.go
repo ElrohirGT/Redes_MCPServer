@@ -2,19 +2,15 @@ package main
 
 import (
 	"context"
-	"errors"
+	"encoding/json"
 	"flag"
-	"fmt"
 	"log"
-	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"golang.org/x/net/html"
 )
 
 func main() {
@@ -42,6 +38,9 @@ func main() {
 	s.AddTool(tool, search_package)
 
 	if transport == "http" {
+		serverCtx, cancelServerCtx := context.WithCancel(context.Background())
+		defer cancelServerCtx()
+
 		serv := server.NewStreamableHTTPServer(s)
 		log.Printf("HTTP server listening on :8080/mcp")
 		go func() {
@@ -56,7 +55,7 @@ func main() {
 
 		<-stopChan // wait for SIGINT
 		log.Println("Shutting down server...")
-		err := serv.Shutdown(context.Background())
+		err := serv.Shutdown(serverCtx)
 		if err != nil {
 			log.Panic(err)
 		}
@@ -68,55 +67,8 @@ func main() {
 	}
 }
 
-type NixPackageInfo struct {
-	Name     string
-	Version  string
-	HomePage string
-	Source   string
-}
 type SearchPackageResult struct {
-	Packages []NixPackageInfo
-}
-
-var INTERNAL_MCP_ERROR = errors.New("Internal MCP Error")
-var EXTERNAL_ERROR = errors.New("External Error")
-
-func search_package_core(ctx context.Context, name string) (SearchPackageResult, error, bool) {
-	result := SearchPackageResult{
-		Packages: []NixPackageInfo{},
-	}
-
-	// https://search.nixos.org/packages?type=packages&query={name}
-	parseUrl, err := url.Parse("https://search.nixos.org/packages?type=packages")
-	if err != nil {
-		return result, err, true
-	}
-	queryValues := parseUrl.Query()
-	queryValues.Add("query", name)
-	parseUrl.RawQuery = queryValues.Encode()
-
-	req, err := http.NewRequestWithContext(ctx, "GET", parseUrl.String(), nil)
-	if err != nil {
-		return result, errors.Join(
-			INTERNAL_MCP_ERROR,
-			errors.New("Failed to construct request with context"),
-			err,
-		), true
-	}
-
-	response, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return result, errors.Join(EXTERNAL_ERROR, err), false
-	}
-
-	node, err := html.Parse(response.Body)
-	if err != nil {
-		return result, errors.Join(EXTERNAL_ERROR, err), false
-	}
-
-	log.Println(node)
-
-	return result, nil, false
+	Packages []NixHubPkgSummary
 }
 
 func search_package(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -125,7 +77,7 @@ func search_package(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	_, err, should_terminate := search_package_core(ctx, name)
+	result, err, should_terminate := search_package_core(ctx, name)
 	if err != nil {
 		if should_terminate {
 			return mcp.NewToolResultError(err.Error()), err
@@ -134,5 +86,10 @@ func search_package(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 		}
 	}
 
-	return mcp.NewToolResultText(fmt.Sprintf("Hello, %s!", name)), nil
+	resultBytes, err := json.Marshal(result)
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), err
+	}
+
+	return mcp.NewToolResultText(string(resultBytes)), nil
 }
