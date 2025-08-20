@@ -1,0 +1,8 @@
+version: "2"
+linters:
+  # Disable all linters.
+  # Default: false
+  default: all
+formatters:
+  enable:
+    - gofmt
