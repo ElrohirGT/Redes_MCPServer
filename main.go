@@ -2,11 +2,11 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -92,10 +92,14 @@ func search_package(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 		}
 	}
 
-	resultBytes, err := json.Marshal(result)
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), err
+	b := strings.Builder{}
+	for _, v := range result.Packages {
+		b.WriteString(v.Name)
+		b.WriteString(v.Summary)
+		b.WriteString("; Last Updated: ")
+		b.WriteString(v.LastUpdated.String())
+		b.WriteRune('\n')
 	}
 
-	return mcp.NewToolResultText(string(resultBytes)), nil
+	return mcp.NewToolResultText(b.String()), nil
 }
