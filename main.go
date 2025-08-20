@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -17,6 +18,11 @@ import (
 )
 
 func main() {
+	var transport string
+	flag.StringVar(&transport, "t", "stdio", "Transport type (stdio or http)")
+	flag.StringVar(&transport, "transport", "stdio", "Transport type (stdio or http)")
+	flag.Parse()
+
 	// Create a new MCP server
 	s := server.NewMCPServer(
 		"Nix MCP Server",
@@ -36,24 +42,30 @@ func main() {
 	// Add tool handler
 	s.AddTool(tool, search_package)
 
-	// Start the stdio server
-	serv := server.NewStreamableHTTPServer(s)
-	addr := "127.0.0.1:8080"
-	log.Println("Listening on", addr)
-	go func() {
-		if err := serv.Start(addr); err != nil {
-			fmt.Printf("Server error: %v\n", err)
+	if transport == "http" {
+		serv := server.NewStreamableHTTPServer(s)
+		log.Printf("HTTP server listening on :8080/mcp")
+		go func() {
+			if err := serv.Start(":8080"); err != nil {
+				log.Printf("Server error: %v", err)
+			}
+			log.Println("Server execution ended!")
+		}()
+
+		var stopChan = make(chan os.Signal, 2)
+		signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+
+		<-stopChan // wait for SIGINT
+		log.Println("Shutting down server...")
+		err := serv.Shutdown(context.Background())
+		if err != nil {
+			log.Panic(err)
 		}
-		log.Println("Server execution ended!")
-	}()
-
-	var stopChan = make(chan os.Signal, 2)
-	signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
-
-	<-stopChan // wait for SIGINT
-	err := serv.Shutdown(context.Background())
-	if err != nil {
-		log.Panic(err)
+		log.Println("Server shutdown!")
+	} else {
+		if err := server.ServeStdio(s); err != nil {
+			log.Fatalf("Server error: %v", err)
+		}
 	}
 }
 
