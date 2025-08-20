@@ -20,7 +20,6 @@ import (
 func main() {
 	var transport string
 	flag.StringVar(&transport, "t", "stdio", "Transport type (stdio or http)")
-	flag.StringVar(&transport, "transport", "stdio", "Transport type (stdio or http)")
 	flag.Parse()
 
 	// Create a new MCP server
