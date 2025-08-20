@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -40,10 +41,14 @@ func main() {
 	if transport == "http" {
 		serverCtx, cancelServerCtx := context.WithCancel(context.Background())
 		defer cancelServerCtx()
-
 		serv := server.NewStreamableHTTPServer(s)
 		log.Printf("HTTP server listening on :8080/mcp")
+
+		wg := sync.WaitGroup{}
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
+
 			if err := serv.Start(":8080"); err != nil {
 				log.Printf("Server error: %v", err)
 			}
@@ -59,6 +64,7 @@ func main() {
 		if err != nil {
 			log.Panic(err)
 		}
+		wg.Wait()
 		log.Println("Server shutdown!")
 	} else {
 		if err := server.ServeStdio(s); err != nil {
