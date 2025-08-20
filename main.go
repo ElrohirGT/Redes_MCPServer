@@ -2,10 +2,14 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"net/url"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -17,7 +21,7 @@ func main() {
 	s := server.NewMCPServer(
 		"Nix MCP Server",
 		"1.0.0",
-		server.WithToolCapabilities(false),
+		server.WithToolCapabilities(true),
 	)
 
 	// Add tool
@@ -33,20 +37,48 @@ func main() {
 	s.AddTool(tool, search_package)
 
 	// Start the stdio server
-	if err := server.ServeStdio(s); err != nil {
-		fmt.Printf("Server error: %v\n", err)
+	serv := server.NewStreamableHTTPServer(s)
+	addr := "127.0.0.1:8080"
+	log.Println("Listening on", addr)
+	go func() {
+		if err := serv.Start(addr); err != nil {
+			fmt.Printf("Server error: %v\n", err)
+		}
+		log.Println("Server execution ended!")
+	}()
+
+	var stopChan = make(chan os.Signal, 2)
+	signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+
+	<-stopChan // wait for SIGINT
+	err := serv.Shutdown(context.Background())
+	if err != nil {
+		log.Panic(err)
 	}
 }
 
-func search_package(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	name, err := request.RequireString("name")
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+type NixPackageInfo struct {
+	Name     string
+	Version  string
+	HomePage string
+	Source   string
+}
+type SearchPackageResult struct {
+	Packages []NixPackageInfo
+}
+
+var INTERNAL_MCP_ERROR = errors.New("Internal MCP Error")
+var EXTERNAL_ERROR = errors.New("External Error")
+
+func search_package_core(ctx context.Context, name string) (SearchPackageResult, error, bool) {
+	result := SearchPackageResult{
+		Packages: []NixPackageInfo{},
 	}
+
 	// https://search.nixos.org/packages?type=packages&query={name}
 	parseUrl, err := url.Parse("https://search.nixos.org/packages?type=packages")
 	if err != nil {
-		return mcp.NewToolResultError("Failed to parse URL: " + err.Error()), err
+		return result, err, true
 	}
 	queryValues := parseUrl.Query()
 	queryValues.Add("query", name)
@@ -54,20 +86,42 @@ func search_package(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 
 	req, err := http.NewRequestWithContext(ctx, "GET", parseUrl.String(), nil)
 	if err != nil {
-		return mcp.NewToolResultError("Failed to construct request with context: " + err.Error()), err
+		return result, errors.Join(
+			INTERNAL_MCP_ERROR,
+			errors.New("Failed to construct request with context"),
+			err,
+		), true
 	}
 
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return result, errors.Join(EXTERNAL_ERROR, err), false
 	}
 
 	node, err := html.Parse(response.Body)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return result, errors.Join(EXTERNAL_ERROR, err), false
 	}
 
 	log.Println(node)
+
+	return result, nil, false
+}
+
+func search_package(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	name, err := request.RequireString("name")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	_, err, should_terminate := search_package_core(ctx, name)
+	if err != nil {
+		if should_terminate {
+			return mcp.NewToolResultError(err.Error()), err
+		} else {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+	}
 
 	return mcp.NewToolResultText(fmt.Sprintf("Hello, %s!", name)), nil
 }
