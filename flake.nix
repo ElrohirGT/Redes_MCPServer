@@ -30,5 +30,11 @@
         ];
       };
     });
+
+    packages = forAllSystems (system: let
+      pkgs = nixpkgsFor.${system};
+    in {
+      default = pkgs.callPackage ./package.nix {};
+    });
   };
 }
