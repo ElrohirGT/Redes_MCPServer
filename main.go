@@ -17,6 +17,8 @@ import (
 func main() {
 	var transport string
 	flag.StringVar(&transport, "t", "http", "Transport type (stdio or http)")
+	var addr string
+	flag.StringVar(&addr, "a", ":8080", "Address where the server will listen")
 	flag.Parse()
 
 	// Create a new MCP server
@@ -42,14 +44,14 @@ func main() {
 		serverCtx, cancelServerCtx := context.WithCancel(context.Background())
 		defer cancelServerCtx()
 		serv := server.NewStreamableHTTPServer(s)
-		log.Printf("HTTP server listening on :8080/mcp")
+		log.Println("HTTP server listening on", addr)
 
 		wg := sync.WaitGroup{}
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 
-			if err := serv.Start(":8080"); err != nil {
+			if err := serv.Start(addr); err != nil {
 				log.Printf("Server error: %v", err)
 			}
 			log.Println("Server execution ended!")
