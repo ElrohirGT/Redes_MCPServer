@@ -87,7 +87,7 @@ func search_package(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 	name, err := request.RequireString("name")
 	if err != nil {
 		log.Println("ERROR: No required `name` argument provided!")
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError("ERROR: " + err.Error()), nil
 	}
 
 	log.Println("Trying to search packages with name:", name)
