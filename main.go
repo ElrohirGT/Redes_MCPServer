@@ -43,7 +43,10 @@ func main() {
 	if transport == "http" {
 		serverCtx, cancelServerCtx := context.WithCancel(context.Background())
 		defer cancelServerCtx()
-		serv := server.NewStreamableHTTPServer(s)
+		serv := server.NewStreamableHTTPServer(
+			s,
+			server.WithStateLess(true),
+		)
 		log.Println("HTTP server listening on", addr)
 
 		wg := sync.WaitGroup{}
