@@ -25,7 +25,7 @@ func main() {
 	s := server.NewMCPServer(
 		"Nix MCP Server",
 		"1.0.0",
-		server.WithToolCapabilities(true),
+		server.WithToolCapabilities(false),
 	)
 
 	// Add tool
@@ -80,11 +80,14 @@ type SearchPackageResult struct {
 }
 
 func search_package(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	log.Println("Received request to `search_package`")
 	name, err := request.RequireString("name")
 	if err != nil {
+		log.Println("ERROR: No required `name` argument provided!")
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
+	log.Println("Trying to search packages with name:", name)
 	result, err, should_terminate := search_package_core(ctx, name)
 	if err != nil {
 		if should_terminate {
@@ -94,6 +97,7 @@ func search_package(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 		}
 	}
 
+	log.Println("Transforming request from JSON into single string")
 	b := strings.Builder{}
 	for _, v := range result.Packages {
 		b.WriteString(v.Name)
