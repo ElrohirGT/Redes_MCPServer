@@ -83,7 +83,7 @@ type SearchPackageResult struct {
 }
 
 func search_package(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	log.Println("Received request to `search_package`")
+	log.Printf("Received request to `search_package`\n%#v", request)
 	name, err := request.RequireString("name")
 	if err != nil {
 		log.Println("ERROR: No required `name` argument provided!")
