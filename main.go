@@ -30,7 +30,7 @@ func main() {
 
 	// Add tool
 	tool := mcp.NewTool("search_package",
-		mcp.WithDescription("Search for a specific package inside Nix repository"),
+		mcp.WithDescription("Search for packages inside the nix repository, get information like: name, summary, home page url, version, license, release date and platforms"),
 		mcp.WithString("name",
 			mcp.Required(),
 			mcp.Description("Name of the package to search"),
@@ -79,7 +79,7 @@ func main() {
 }
 
 type SearchPackageResult struct {
-	Packages []NixHubPkgSummary
+	Packages []NixHubPkgInfo
 }
 
 func search_package(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -104,11 +104,27 @@ func search_package(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 	b := strings.Builder{}
 	for _, v := range result.Packages {
 		b.WriteString(v.Name)
+		b.WriteString("\n - Summary: ")
 		b.WriteString(v.Summary)
-		b.WriteString("; Last Updated: ")
-		b.WriteString(v.LastUpdated.String())
+		b.WriteString("\n - Homepage: ")
+		b.WriteString(v.HomepageUrl)
+		b.WriteString("\n - License: ")
+		b.WriteString(v.License)
+
+		if len(v.Releases) >= 1 {
+			lr := v.Releases[0]
+			b.WriteString("\n - Latest Release Version: ")
+			b.WriteString(lr.Version)
+			b.WriteString("\n - Latest Release Platforms: ")
+			b.WriteString(lr.PlatformsSummary)
+			b.WriteString("\n - Latest Release Date: ")
+			b.WriteString(lr.LastUpdated.String())
+		}
 		b.WriteRune('\n')
 	}
 
-	return mcp.NewToolResultText(b.String()), nil
+	resultText := b.String()
+	log.Println("Final output:\n", resultText)
+
+	return mcp.NewToolResultText(resultText), nil
 }
