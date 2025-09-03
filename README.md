@@ -1,5 +1,7 @@
 # Nix Package MCP Server
 
+![Demo GIF](./media/demo.mp4)
+
 ## How to use?
 
 The MCP server was built using the Go programming language!
