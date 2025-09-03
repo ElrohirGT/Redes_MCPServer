@@ -2,8 +2,11 @@
 
 ## How to use?
 
-The MCP server was built using the Go programming language! If you have Nix
-installed running this server is as simple as:
+The MCP server was built using the Go programming language!
+
+**ENDPOINT:** The MCP server default endpoint for communication is `/mcp`.
+
+If you have Nix installed running this server is as simple as:
 
 ```bash
 # If you're inside the root of the repo
