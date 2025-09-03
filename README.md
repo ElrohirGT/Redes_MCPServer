@@ -1,6 +1,6 @@
 # Nix Package MCP Server
 
-https://github.com/ElrohirGT/Redes_MCPServer/raw/refs/heads/main/media/demo.mp4
+https://github.com/user-attachments/assets/1b838292-ab21-4943-a3fb-8fd5f007ddb9
 
 ## How to use?
 
