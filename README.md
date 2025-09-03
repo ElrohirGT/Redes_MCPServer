@@ -1,9 +1,6 @@
 # Nix Package MCP Server
 
-<video width="320" height="240" controls>
-  <source src="https://github.com/ElrohirGT/Redes_MCPServer/raw/refs/heads/main/media/demo.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video> 
+https://github.com/ElrohirGT/Redes_MCPServer/raw/refs/heads/main/media/demo.mp4
 
 ## How to use?
 
